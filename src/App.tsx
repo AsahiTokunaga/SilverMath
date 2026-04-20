@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Document, Packer, Paragraph, TextRun, PageOrientation } from "docx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  PageOrientation,
+  Header,
+  Footer,
+  AlignmentType,
+  PageNumber,
+} from "docx";
 import "./App.css";
 
 function App() {
@@ -53,12 +63,44 @@ function App() {
                 orientation: PageOrientation.LANDSCAPE,
               },
               margin: {
+                header: 400,
+                footer: 400,
                 top: 720, // 0.5 inch
                 bottom: 720,
                 left: 720,
                 right: 720,
               },
             },
+          },
+          headers: {
+            default: new Header({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: `脳トレ用　計算問題　－５０～５０　${toZenkaku(questionCount.toString())}問`,
+                      size: 48, // 24pt (48 half-points)
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          },
+          footers: {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.RIGHT,
+                  children: [
+                    new TextRun({
+                      children: [PageNumber.CURRENT],
+                      size: 24, // 12pt
+                    }),
+                  ],
+                }),
+              ],
+            }),
           },
           children: problems.map((prob) => {
             return new Paragraph({
