@@ -1,29 +1,40 @@
-export const SUM_MIN = 1;
-export const SUM_MAX = 60;
-export const TERM_MIN = -30;
-export const TERM_MAX = 30;
-export const TERM_COUNT_MIN = 7;
-export const TERM_COUNT_MAX = 10;
-export const WORKSHEET_HEADER_TERM_RANGE = `ー${Math.abs(TERM_MIN)}～${TERM_MAX}`;
+import {
+  EMPTY_TERM,
+  EQUATION_LENGTH_DEFAULT,
+  EQUATION_LENGTH_MAX,
+  EQUATION_LENGTH_MIN,
+  FIRST_INDEX,
+  INCLUSIVE_RANGE_STEP,
+  MAX_GENERATION_ATTEMPTS,
+  MIN_POSITIVE_TERM,
+  NO_REMAINING_TERMS,
+  SINGLE_REMAINING_TERM,
+  STARTING_SUM,
+  SUM_MAX,
+  SUM_MIN,
+  TERM_MAX,
+  TERM_MIN,
+  ZENKAKU_OFFSET,
+} from "@/App";
 
 export function randInt(min: number, max: number): number {
   if (max < min) {
     throw new Error("randInt requires max to be greater than or equal to min.");
   }
 
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  return Math.floor(Math.random() * (max - min + INCLUSIVE_RANGE_STEP)) + min;
 }
 
 export function randIntExceptZero(min: number, max: number): number {
-  if (min === 0 && max === 0) {
+  if (min === EMPTY_TERM && max === EMPTY_TERM) {
     throw new Error("randIntExceptZero does not support a range containing only 0.");
   }
 
-  let value = 0;
+  let value = EMPTY_TERM;
 
   do {
     value = randInt(min, max);
-  } while (value === 0);
+  } while (value === EMPTY_TERM);
 
   return value;
 }
@@ -31,44 +42,161 @@ export function randIntExceptZero(min: number, max: number): number {
 export function toZenkaku(str: string): string {
   return str.replace(/[A-Za-z0-9=+\- ]/g, (char) => {
     if (char === " ") return "　";
-    return String.fromCharCode(char.charCodeAt(0) + 0xfee0);
+    return String.fromCharCode(char.charCodeAt(0) + ZENKAKU_OFFSET);
   });
 }
 
 function formatExpression(terms: number[]): string {
   return terms
     .map((term, index) => {
-      if (index === 0) return term.toString();
-      return term >= 0 ? `+${term}` : `${term}`;
+      if (index === FIRST_INDEX) return term.toString();
+      return term >= STARTING_SUM ? `+${term}` : `${term}`;
     })
     .join("");
 }
 
-function generateWorksheetExpression(): string {
-  for (let attempt = 0; attempt < 1000; attempt++) {
-    const termCount = randInt(TERM_COUNT_MIN, TERM_COUNT_MAX);
-    const terms: number[] = [randInt(1, TERM_MAX)];
+function getNextTermMinimum(currentSum: number): number {
+  if (currentSum === STARTING_SUM) {
+    return MIN_POSITIVE_TERM;
+  }
 
-    for (let index = 1; index < termCount - 1; index++) {
-      terms.push(randIntExceptZero(TERM_MIN, TERM_MAX));
+  return Math.max(TERM_MIN, -currentSum);
+}
+
+function shuffleNumbers(values: number[]): number[] {
+  for (let index = values.length - SINGLE_REMAINING_TERM; index > FIRST_INDEX; index--) {
+    const swapIndex = randInt(FIRST_INDEX, index);
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+  }
+
+  return values;
+}
+
+function canCompleteExpression(
+  currentSum: number,
+  remainingTerms: number,
+  targetSum: number,
+  memo: Map<string, boolean>,
+): boolean {
+  const cacheKey = `${currentSum}:${remainingTerms}`;
+  const cached = memo.get(cacheKey);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  let result = false;
+
+  if (remainingTerms === NO_REMAINING_TERMS) {
+    result = currentSum === targetSum;
+  } else if (remainingTerms === SINGLE_REMAINING_TERM) {
+    const lastTerm = targetSum - currentSum;
+    result = lastTerm !== EMPTY_TERM && lastTerm >= TERM_MIN && lastTerm <= TERM_MAX;
+  } else {
+    const minimumTerm = getNextTermMinimum(currentSum);
+
+    for (let term = minimumTerm; term <= TERM_MAX; term++) {
+      if (term === EMPTY_TERM) continue;
+
+      if (canCompleteExpression(currentSum + term, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo)) {
+        result = true;
+        break;
+      }
     }
+  }
 
-    const targetSum = randInt(SUM_MIN, SUM_MAX);
-    const currentSum = terms.reduce((sum, term) => sum + term, 0);
+  memo.set(cacheKey, result);
+  return result;
+}
+
+function buildExpressionTerms(
+  currentSum: number,
+  remainingTerms: number,
+  targetSum: number,
+  memo: Map<string, boolean>,
+): number[] | null {
+  if (remainingTerms === NO_REMAINING_TERMS) {
+    return currentSum === targetSum ? [] : null;
+  }
+
+  if (remainingTerms === SINGLE_REMAINING_TERM) {
     const lastTerm = targetSum - currentSum;
 
-    if (lastTerm === 0) continue;
-    if (lastTerm < TERM_MIN || lastTerm > TERM_MAX) continue;
+    if (lastTerm === EMPTY_TERM || lastTerm < TERM_MIN || lastTerm > TERM_MAX) {
+      return null;
+    }
 
-    terms.push(lastTerm);
-    return formatExpression(terms);
+    return [lastTerm];
+  }
+
+  const candidateTerms: number[] = [];
+  const minimumTerm = getNextTermMinimum(currentSum);
+
+  for (let term = minimumTerm; term <= TERM_MAX; term++) {
+    if (term !== EMPTY_TERM) {
+      candidateTerms.push(term);
+    }
+  }
+
+  shuffleNumbers(candidateTerms);
+
+  for (const term of candidateTerms) {
+    const nextSum = currentSum + term;
+
+    if (!canCompleteExpression(nextSum, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo)) {
+      continue;
+    }
+
+    const restTerms = buildExpressionTerms(nextSum, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo);
+
+    if (restTerms !== null) {
+      return [term, ...restTerms];
+    }
+  }
+
+  return null;
+}
+
+function validateEquationLength(equationLength: number): void {
+  if (!Number.isInteger(equationLength)) {
+    throw new Error("equationLength must be an integer.");
+  }
+
+  if (equationLength < EQUATION_LENGTH_MIN || equationLength > EQUATION_LENGTH_MAX) {
+    throw new Error("equationLength is out of supported range.");
+  }
+}
+
+function generateWorksheetExpression(equationLength: number): string {
+  validateEquationLength(equationLength);
+
+  for (let attempt = FIRST_INDEX; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+    const targetSum = randInt(SUM_MIN, SUM_MAX);
+    const firstTerm = randInt(MIN_POSITIVE_TERM, TERM_MAX);
+    const memo = new Map<string, boolean>();
+    const remainingTerms = equationLength - SINGLE_REMAINING_TERM;
+
+    if (!canCompleteExpression(firstTerm, remainingTerms, targetSum, memo)) {
+      continue;
+    }
+
+    const restTerms = buildExpressionTerms(firstTerm, remainingTerms, targetSum, memo);
+
+    if (restTerms === null) {
+      continue;
+    }
+
+    return formatExpression([firstTerm, ...restTerms]);
   }
 
   throw new Error("Failed to generate a worksheet expression.");
 }
 
-export function generateWorksheetExpressions(questionCount: number): string[] {
-  return Array.from({ length: questionCount }, () => generateWorksheetExpression());
+export function generateWorksheetExpressions(
+  questionCount: number,
+  equationLength = EQUATION_LENGTH_DEFAULT,
+): string[] {
+  return Array.from({ length: questionCount }, () => generateWorksheetExpression(equationLength));
 }
 
 export function formatTodayJst(date = new Date()): string {

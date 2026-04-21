@@ -15,16 +15,33 @@ import {
   VerticalAlign,
   WidthType,
 } from "docx";
-import { toZenkaku, WORKSHEET_HEADER_TERM_RANGE } from "./worksheet";
-
-const AVAILABLE_HEIGHT_PT = 480;
-const AVAILABLE_WIDTH_PT = 770;
-const QUESTIONS_PER_PAGE = 10;
-const PAGE_HEIGHT_SAFETY_MARGIN_PT = 20;
-const MIN_FONT_SIZE_PT = 8;
+import {
+  AVAILABLE_HEIGHT_PT,
+  AVAILABLE_WIDTH_PT,
+  BORDER_NONE_COLOR,
+  BORDER_NONE_SIZE,
+  FOOTER_INFO_CELL_WIDTH_PERCENT,
+  FOOTER_PAGE_CELL_WIDTH_PERCENT,
+  FOOTER_TEXT_SIZE_HALF_POINTS,
+  FULL_PERCENT,
+  HEADER_TEXT_SIZE_HALF_POINTS,
+  MIN_FONT_SIZE_PT,
+  PAGE_EDGE_MARGIN_TWIPS,
+  PAGE_FOOTER_MARGIN_TWIPS,
+  PAGE_HEIGHT_SAFETY_MARGIN_PT,
+  PAGE_HEADER_MARGIN_TWIPS,
+  PROBLEM_LINE_PADDING_CHARS,
+  PROBLEM_TEXT_SCALE,
+  PROBLEM_VERTICAL_SPAN,
+  FIRST_INDEX,
+  QUESTIONS_PER_PAGE,
+  TWIPS_PER_POINT,
+  WORKSHEET_HEADER_TERM_RANGE,
+} from "@/App";
+import { toZenkaku } from "@/features/worksheet/worksheet";
 
 function createNoBorder() {
-  return { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  return { style: BorderStyle.NONE, size: BORDER_NONE_SIZE, color: BORDER_NONE_COLOR };
 }
 
 function createTableBorders(includeInsideBorders = true) {
@@ -53,9 +70,9 @@ export function calculateWorksheetFontSize(problemExpressions: string[], questio
   const questionsOnPage = Math.min(questionCount, QUESTIONS_PER_PAGE);
   const usableHeightPt = AVAILABLE_HEIGHT_PT - PAGE_HEIGHT_SAFETY_MARGIN_PT;
 
-  let fontSizePt = Math.floor(usableHeightPt / (questionsOnPage * 2));
+  let fontSizePt = Math.floor(usableHeightPt / (questionsOnPage * PROBLEM_VERTICAL_SPAN));
   const maxCalcLength = Math.max(...problemExpressions.map((expression) => expression.length));
-  const maxLineLength = maxCalcLength + 2;
+  const maxLineLength = maxCalcLength + PROBLEM_LINE_PADDING_CHARS;
   const maxFontByWidth = Math.floor(AVAILABLE_WIDTH_PT / maxLineLength);
 
   if (fontSizePt > maxFontByWidth) fontSizePt = maxFontByWidth;
@@ -70,7 +87,7 @@ function createProblemTable(problemExpression: string, fontSizePt: number): Tabl
     rows: [
       new TableRow({
         height: {
-          value: fontSizePt * 2 * 20,
+          value: fontSizePt * PROBLEM_VERTICAL_SPAN * TWIPS_PER_POINT,
           rule: HeightRule.EXACT,
         },
         children: [
@@ -81,7 +98,7 @@ function createProblemTable(problemExpression: string, fontSizePt: number): Tabl
                 children: [
                   new TextRun({
                     text: toZenkaku(problemExpression),
-                    size: fontSizePt * 1.8,
+                    size: fontSizePt * PROBLEM_TEXT_SCALE,
                   }),
                 ],
               }),
@@ -94,7 +111,7 @@ function createProblemTable(problemExpression: string, fontSizePt: number): Tabl
                 children: [
                   new TextRun({
                     text: " ＝",
-                    size: fontSizePt * 1.8,
+                    size: fontSizePt * PROBLEM_TEXT_SCALE,
                   }),
                 ],
               }),
@@ -114,7 +131,7 @@ function createHeader(questionCount: number): Header {
         children: [
           new TextRun({
             text: `脳トレ用　計算問題　${WORKSHEET_HEADER_TERM_RANGE}　${questionCount.toString()}問　　（　　/${questionCount.toString()}）`,
-            size: 48,
+            size: HEADER_TEXT_SIZE_HALF_POINTS,
           }),
         ],
       }),
@@ -128,7 +145,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
       new Table({
         borders: createTableBorders(),
         width: {
-          size: 100,
+          size: FULL_PERCENT,
           type: WidthType.PERCENTAGE,
         },
         rows: [
@@ -136,7 +153,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
             children: [
               new TableCell({
                 width: {
-                  size: 85,
+                  size: FOOTER_INFO_CELL_WIDTH_PERCENT,
                   type: WidthType.PERCENTAGE,
                 },
                 verticalAlign: VerticalAlign.BOTTOM,
@@ -146,7 +163,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
                     children: [
                       new TextRun({
                         text: `作成者: ${creatorName}　　番号: ${solverNumber}　　作成日: ${todayJst}　　解答日: (          /      /      )`,
-                        size: 24,
+                        size: FOOTER_TEXT_SIZE_HALF_POINTS,
                       }),
                     ],
                   }),
@@ -154,7 +171,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
               }),
               new TableCell({
                 width: {
-                  size: 15,
+                  size: FOOTER_PAGE_CELL_WIDTH_PERCENT,
                   type: WidthType.PERCENTAGE,
                 },
                 verticalAlign: VerticalAlign.BOTTOM,
@@ -165,7 +182,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
                     children: [
                       new TextRun({
                         children: [PageNumber.CURRENT],
-                        size: 24,
+                        size: FOOTER_TEXT_SIZE_HALF_POINTS,
                       }),
                     ],
                   }),
@@ -182,7 +199,7 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
 function chunkQuestions(problemExpressions: string[]): string[][] {
   const chunks: string[][] = [];
 
-  for (let index = 0; index < problemExpressions.length; index += QUESTIONS_PER_PAGE) {
+  for (let index = FIRST_INDEX; index < problemExpressions.length; index += QUESTIONS_PER_PAGE) {
     chunks.push(problemExpressions.slice(index, index + QUESTIONS_PER_PAGE));
   }
 
@@ -208,12 +225,12 @@ export function createWorksheetDocument(params: {
               orientation: PageOrientation.LANDSCAPE,
             },
             margin: {
-              header: 400,
-              footer: 400,
-              top: 720,
-              bottom: 720,
-              left: 720,
-              right: 720,
+              header: PAGE_HEADER_MARGIN_TWIPS,
+              footer: PAGE_FOOTER_MARGIN_TWIPS,
+              top: PAGE_EDGE_MARGIN_TWIPS,
+              bottom: PAGE_EDGE_MARGIN_TWIPS,
+              left: PAGE_EDGE_MARGIN_TWIPS,
+              right: PAGE_EDGE_MARGIN_TWIPS,
             },
           },
         },
