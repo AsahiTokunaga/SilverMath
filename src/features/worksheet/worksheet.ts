@@ -27,7 +27,9 @@ export function randInt(min: number, max: number): number {
 
 export function randIntExceptZero(min: number, max: number): number {
   if (min === EMPTY_TERM && max === EMPTY_TERM) {
-    throw new Error("randIntExceptZero does not support a range containing only 0.");
+    throw new Error(
+      "randIntExceptZero does not support a range containing only 0.",
+    );
   }
 
   let value = EMPTY_TERM;
@@ -64,7 +66,11 @@ function getNextTermMinimum(currentSum: number): number {
 }
 
 function shuffleNumbers(values: number[]): number[] {
-  for (let index = values.length - SINGLE_REMAINING_TERM; index > FIRST_INDEX; index--) {
+  for (
+    let index = values.length - SINGLE_REMAINING_TERM;
+    index > FIRST_INDEX;
+    index--
+  ) {
     const swapIndex = randInt(FIRST_INDEX, index);
     [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
   }
@@ -91,14 +97,22 @@ function canCompleteExpression(
     result = currentSum === targetSum;
   } else if (remainingTerms === SINGLE_REMAINING_TERM) {
     const lastTerm = targetSum - currentSum;
-    result = lastTerm !== EMPTY_TERM && lastTerm >= TERM_MIN && lastTerm <= TERM_MAX;
+    result =
+      lastTerm !== EMPTY_TERM && lastTerm >= TERM_MIN && lastTerm <= TERM_MAX;
   } else {
     const minimumTerm = getNextTermMinimum(currentSum);
 
     for (let term = minimumTerm; term <= TERM_MAX; term++) {
       if (term === EMPTY_TERM) continue;
 
-      if (canCompleteExpression(currentSum + term, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo)) {
+      if (
+        canCompleteExpression(
+          currentSum + term,
+          remainingTerms - SINGLE_REMAINING_TERM,
+          targetSum,
+          memo,
+        )
+      ) {
         result = true;
         break;
       }
@@ -143,11 +157,23 @@ function buildExpressionTerms(
   for (const term of candidateTerms) {
     const nextSum = currentSum + term;
 
-    if (!canCompleteExpression(nextSum, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo)) {
+    if (
+      !canCompleteExpression(
+        nextSum,
+        remainingTerms - SINGLE_REMAINING_TERM,
+        targetSum,
+        memo,
+      )
+    ) {
       continue;
     }
 
-    const restTerms = buildExpressionTerms(nextSum, remainingTerms - SINGLE_REMAINING_TERM, targetSum, memo);
+    const restTerms = buildExpressionTerms(
+      nextSum,
+      remainingTerms - SINGLE_REMAINING_TERM,
+      targetSum,
+      memo,
+    );
 
     if (restTerms !== null) {
       return [term, ...restTerms];
@@ -162,7 +188,10 @@ function validateEquationLength(equationLength: number): void {
     throw new Error("equationLength must be an integer.");
   }
 
-  if (equationLength < EQUATION_LENGTH_MIN || equationLength > EQUATION_LENGTH_MAX) {
+  if (
+    equationLength < EQUATION_LENGTH_MIN ||
+    equationLength > EQUATION_LENGTH_MAX
+  ) {
     throw new Error("equationLength is out of supported range.");
   }
 }
@@ -170,7 +199,11 @@ function validateEquationLength(equationLength: number): void {
 function generateWorksheetExpression(equationLength: number): string {
   validateEquationLength(equationLength);
 
-  for (let attempt = FIRST_INDEX; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+  for (
+    let attempt = FIRST_INDEX;
+    attempt < MAX_GENERATION_ATTEMPTS;
+    attempt++
+  ) {
     const targetSum = randInt(SUM_MIN, SUM_MAX);
     const firstTerm = randInt(MIN_POSITIVE_TERM, TERM_MAX);
     const memo = new Map<string, boolean>();
@@ -180,7 +213,12 @@ function generateWorksheetExpression(equationLength: number): string {
       continue;
     }
 
-    const restTerms = buildExpressionTerms(firstTerm, remainingTerms, targetSum, memo);
+    const restTerms = buildExpressionTerms(
+      firstTerm,
+      remainingTerms,
+      targetSum,
+      memo,
+    );
 
     if (restTerms === null) {
       continue;
@@ -196,7 +234,9 @@ export function generateWorksheetExpressions(
   questionCount: number,
   equationLength = EQUATION_LENGTH_DEFAULT,
 ): string[] {
-  return Array.from({ length: questionCount }, () => generateWorksheetExpression(equationLength));
+  return Array.from({ length: questionCount }, () =>
+    generateWorksheetExpression(equationLength),
+  );
 }
 
 export function formatTodayJst(date = new Date()): string {
@@ -218,8 +258,10 @@ export function buildWorksheetFileName(params: {
   solverNumber: string;
   todayJst: string;
 }): string {
-  const safeCreatorName = params.creatorName.trim().replace(/[\\/:*?"<>|]/g, "_") || "未設定";
-  const safeSolverNumber = params.solverNumber.trim().replace(/[\\/:*?"<>|]/g, "_") || "0";
+  const safeCreatorName =
+    params.creatorName.trim().replace(/[\\/:*?"<>|]/g, "_") || "未設定";
+  const safeSolverNumber =
+    params.solverNumber.trim().replace(/[\\/:*?"<>|]/g, "_") || "0";
 
   return `脳トレ用計算問題_${params.questionCount}問_${safeCreatorName}_No.${safeSolverNumber}_${params.todayJst}.docx`;
 }

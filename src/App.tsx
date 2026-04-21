@@ -23,8 +23,10 @@ export const MIN_POSITIVE_TERM = 1;
 export const INCLUSIVE_RANGE_STEP = 1;
 export const ZENKAKU_OFFSET = 0xfee0;
 export const WORKSHEET_HEADER_TERM_RANGE = `ー${Math.abs(TERM_MIN)}～${TERM_MAX}`;
-export const AVAILABLE_HEIGHT_PT = 480;
-export const AVAILABLE_WIDTH_PT = 770;
+export const A4_PAGE_WIDTH_TWIPS = 11906;
+export const A4_PAGE_HEIGHT_TWIPS = 16838;
+export const AVAILABLE_HEIGHT_PT = 729;
+export const AVAILABLE_WIDTH_PT = 523;
 export const QUESTIONS_PER_PAGE = 10;
 export const PAGE_HEIGHT_SAFETY_MARGIN_PT = 20;
 export const MIN_FONT_SIZE_PT = 8;
@@ -45,8 +47,12 @@ export const BORDER_NONE_COLOR = "FFFFFF";
 export const FOCUS_DELAY_MS = 0;
 
 function App() {
-  const [questionCount, setQuestionCount] = useState<number>(QUESTION_COUNT_DEFAULT);
-  const [equationLength, setEquationLength] = useState<number>(EQUATION_LENGTH_DEFAULT);
+  const [questionCount, setQuestionCount] = useState<number>(
+    QUESTION_COUNT_DEFAULT,
+  );
+  const [equationLength, setEquationLength] = useState<number>(
+    EQUATION_LENGTH_DEFAULT,
+  );
   const [creatorName, setCreatorName] = useState<string>("");
   const [solverNumber, setSolverNumber] = useState<string>("");
   const creatorNameInputRef = useRef<HTMLInputElement>(null);
@@ -73,15 +79,16 @@ function App() {
     try {
       const {
         buildWorksheetFileName,
-        calculateWorksheetFontSize,
         createWorksheetDocument,
         formatTodayJst,
         formatTodayJstForFile,
         generateWorksheetExpressions,
       } = await import("@/features/worksheet");
 
-      const problems = generateWorksheetExpressions(questionCount, equationLength);
-      const fontSizePt = calculateWorksheetFontSize(problems, questionCount);
+      const problems = generateWorksheetExpressions(
+        questionCount,
+        equationLength,
+      );
       const now = new Date();
       const todayJst = formatTodayJst(now);
       const todayJstForFile = formatTodayJstForFile(now);
@@ -92,7 +99,6 @@ function App() {
         creatorName,
         solverNumber,
         todayJst,
-        fontSizePt,
       });
 
       const blob = await Packer.toBlob(doc);
@@ -115,7 +121,7 @@ function App() {
   return (
     <div className="app-container">
       <div className="card">
-        <h1 className="title">算数問題作成 (A4横)</h1>
+        <h1 className="title">算数問題作成 (A4縦)</h1>
 
         <div className="input-group">
           <label className="label">作成者</label>
@@ -144,7 +150,7 @@ function App() {
 
         <div className="input-group">
           <label className="label">
-            作成する問題数: {" "}
+            作成する問題数:{" "}
             <span className="highlight-text">{questionCount}</span>
           </label>
           <input
@@ -163,7 +169,7 @@ function App() {
 
         <div className="input-group">
           <label className="label">
-            式の長さ（項数）: {" "}
+            式の長さ（項数）:{" "}
             <span className="highlight-text">{equationLength}</span>
           </label>
           <input

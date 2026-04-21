@@ -18,6 +18,8 @@ import {
 import {
   AVAILABLE_HEIGHT_PT,
   AVAILABLE_WIDTH_PT,
+  A4_PAGE_HEIGHT_TWIPS,
+  A4_PAGE_WIDTH_TWIPS,
   BORDER_NONE_COLOR,
   BORDER_NONE_SIZE,
   FOOTER_INFO_CELL_WIDTH_PERCENT,
@@ -36,12 +38,17 @@ import {
   FIRST_INDEX,
   QUESTIONS_PER_PAGE,
   TWIPS_PER_POINT,
-  WORKSHEET_HEADER_TERM_RANGE,
 } from "@/App";
 import { toZenkaku } from "@/features/worksheet/worksheet";
 
+const FULL_PAGE_END_PARAGRAPH_RESERVE_PT = 16;
+
 function createNoBorder() {
-  return { style: BorderStyle.NONE, size: BORDER_NONE_SIZE, color: BORDER_NONE_COLOR };
+  return {
+    style: BorderStyle.NONE,
+    size: BORDER_NONE_SIZE,
+    color: BORDER_NONE_COLOR,
+  };
 }
 
 function createTableBorders(includeInsideBorders = true) {
@@ -66,12 +73,31 @@ function createTableBorders(includeInsideBorders = true) {
   };
 }
 
-export function calculateWorksheetFontSize(problemExpressions: string[], questionCount: number): number {
-  const questionsOnPage = Math.min(questionCount, QUESTIONS_PER_PAGE);
-  const usableHeightPt = AVAILABLE_HEIGHT_PT - PAGE_HEIGHT_SAFETY_MARGIN_PT;
+function calculateWorksheetRowHeight(questionCount: number): number {
+  const questionsOnPage = Math.max(
+    1,
+    Math.min(questionCount, QUESTIONS_PER_PAGE),
+  );
+  const fullPageReservePt =
+    questionsOnPage === QUESTIONS_PER_PAGE
+      ? FULL_PAGE_END_PARAGRAPH_RESERVE_PT
+      : 0;
+  const usableHeightPt =
+    AVAILABLE_HEIGHT_PT - PAGE_HEIGHT_SAFETY_MARGIN_PT - fullPageReservePt;
 
-  let fontSizePt = Math.floor(usableHeightPt / (questionsOnPage * PROBLEM_VERTICAL_SPAN));
-  const maxCalcLength = Math.max(...problemExpressions.map((expression) => expression.length));
+  return Math.floor(usableHeightPt / questionsOnPage);
+}
+
+export function calculateWorksheetFontSize(
+  problemExpressions: string[],
+  questionCount: number,
+): number {
+  const rowHeightPt = calculateWorksheetRowHeight(questionCount);
+
+  let fontSizePt = Math.floor(rowHeightPt / PROBLEM_VERTICAL_SPAN);
+  const maxCalcLength = Math.max(
+    ...problemExpressions.map((expression) => expression.length),
+  );
   const maxLineLength = maxCalcLength + PROBLEM_LINE_PADDING_CHARS;
   const maxFontByWidth = Math.floor(AVAILABLE_WIDTH_PT / maxLineLength);
 
@@ -81,17 +107,22 @@ export function calculateWorksheetFontSize(problemExpressions: string[], questio
   return fontSizePt;
 }
 
-function createProblemTable(problemExpression: string, fontSizePt: number): Table {
+function createProblemTable(
+  problemExpression: string,
+  fontSizePt: number,
+  rowHeightPt: number,
+): Table {
   return new Table({
     borders: createTableBorders(),
     rows: [
       new TableRow({
         height: {
-          value: fontSizePt * PROBLEM_VERTICAL_SPAN * TWIPS_PER_POINT,
+          value: rowHeightPt * TWIPS_PER_POINT,
           rule: HeightRule.EXACT,
         },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.CENTER,
             children: [
               new Paragraph({
                 alignment: AlignmentType.DISTRIBUTE,
@@ -105,6 +136,7 @@ function createProblemTable(problemExpression: string, fontSizePt: number): Tabl
             ],
           }),
           new TableCell({
+            verticalAlign: VerticalAlign.CENTER,
             children: [
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
@@ -130,7 +162,7 @@ function createHeader(questionCount: number): Header {
         alignment: AlignmentType.CENTER,
         children: [
           new TextRun({
-            text: `脳トレ用　計算問題　${WORKSHEET_HEADER_TERM_RANGE}　${questionCount.toString()}問　　（　　/${questionCount.toString()}）`,
+            text: `脳トレ用　計算問題　${questionCount.toString()}問　　（　　/${questionCount.toString()}）`,
             size: HEADER_TEXT_SIZE_HALF_POINTS,
           }),
         ],
@@ -139,7 +171,11 @@ function createHeader(questionCount: number): Header {
   });
 }
 
-function createFooter(creatorName: string, solverNumber: string, todayJst: string): Footer {
+function createFooter(
+  creatorName: string,
+  solverNumber: string,
+  todayJst: string,
+): Footer {
   return new Footer({
     children: [
       new Table({
@@ -199,7 +235,11 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
 function chunkQuestions(problemExpressions: string[]): string[][] {
   const chunks: string[][] = [];
 
-  for (let index = FIRST_INDEX; index < problemExpressions.length; index += QUESTIONS_PER_PAGE) {
+  for (
+    let index = FIRST_INDEX;
+    index < problemExpressions.length;
+    index += QUESTIONS_PER_PAGE
+  ) {
     chunks.push(problemExpressions.slice(index, index + QUESTIONS_PER_PAGE));
   }
 
@@ -212,36 +252,51 @@ export function createWorksheetDocument(params: {
   creatorName: string;
   solverNumber: string;
   todayJst: string;
-  fontSizePt: number;
 }): Document {
   const pageChunks = chunkQuestions(params.problemExpressions);
+  const fontSizePt = calculateWorksheetFontSize(
+    params.problemExpressions,
+    params.questionCount,
+  );
 
   return new Document({
     sections: [
-      ...pageChunks.map((chunk) => ({
-        properties: {
-          page: {
-            size: {
-              orientation: PageOrientation.LANDSCAPE,
-            },
-            margin: {
-              header: PAGE_HEADER_MARGIN_TWIPS,
-              footer: PAGE_FOOTER_MARGIN_TWIPS,
-              top: PAGE_EDGE_MARGIN_TWIPS,
-              bottom: PAGE_EDGE_MARGIN_TWIPS,
-              left: PAGE_EDGE_MARGIN_TWIPS,
-              right: PAGE_EDGE_MARGIN_TWIPS,
+      ...pageChunks.map((chunk) => {
+        const rowHeightPt = calculateWorksheetRowHeight(chunk.length);
+
+        return {
+          properties: {
+            page: {
+              size: {
+                width: A4_PAGE_WIDTH_TWIPS,
+                height: A4_PAGE_HEIGHT_TWIPS,
+                orientation: PageOrientation.PORTRAIT,
+              },
+              margin: {
+                header: PAGE_HEADER_MARGIN_TWIPS,
+                footer: PAGE_FOOTER_MARGIN_TWIPS,
+                top: PAGE_EDGE_MARGIN_TWIPS,
+                bottom: PAGE_EDGE_MARGIN_TWIPS,
+                left: PAGE_EDGE_MARGIN_TWIPS,
+                right: PAGE_EDGE_MARGIN_TWIPS,
+              },
             },
           },
-        },
-        headers: {
-          default: createHeader(params.questionCount),
-        },
-        footers: {
-          default: createFooter(params.creatorName, params.solverNumber, params.todayJst),
-        },
-        children: chunk.map((problemExpression) => createProblemTable(problemExpression, params.fontSizePt)),
-      })),
+          headers: {
+            default: createHeader(params.questionCount),
+          },
+          footers: {
+            default: createFooter(
+              params.creatorName,
+              params.solverNumber,
+              params.todayJst,
+            ),
+          },
+          children: chunk.map((problemExpression) =>
+            createProblemTable(problemExpression, fontSizePt, rowHeightPt),
+          ),
+        };
+      }),
     ],
   });
 }
