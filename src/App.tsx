@@ -45,6 +45,8 @@ export const PAGE_EDGE_MARGIN_TWIPS = 720;
 export const BORDER_NONE_SIZE = 0;
 export const BORDER_NONE_COLOR = "FFFFFF";
 export const FOCUS_DELAY_MS = 0;
+export const FULL_PAGE_END_PARAGRAPH_RESERVE_PT = 16;
+export const BODY_FONT_FAMILY = "MS Gothic";
 
 function App() {
   const [questionCount, setQuestionCount] = useState<number>(
@@ -65,9 +67,12 @@ function App() {
   };
 
   const handleCreate = async () => {
-    if (creatorName === "" || solverNumber === "") {
+    const normalizedCreatorName = creatorName.trim();
+    const normalizedSolverNumber = solverNumber.trim();
+
+    if (normalizedCreatorName === "" || normalizedSolverNumber === "") {
       alert("作成者、番号を入力してください。");
-      if (creatorName === "") {
+      if (normalizedCreatorName === "") {
         focusInput(creatorNameInputRef);
         return;
       }
@@ -96,8 +101,8 @@ function App() {
       const doc = createWorksheetDocument({
         problemExpressions: problems,
         questionCount,
-        creatorName,
-        solverNumber,
+        creatorName: normalizedCreatorName,
+        solverNumber: normalizedSolverNumber,
         todayJst,
       });
 
@@ -106,8 +111,8 @@ function App() {
         blob,
         buildWorksheetFileName({
           questionCount,
-          creatorName,
-          solverNumber,
+          creatorName: normalizedCreatorName,
+          solverNumber: normalizedSolverNumber,
           todayJst: todayJstForFile,
         }),
       );

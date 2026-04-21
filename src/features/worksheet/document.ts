@@ -38,10 +38,10 @@ import {
   FIRST_INDEX,
   QUESTIONS_PER_PAGE,
   TWIPS_PER_POINT,
+  BODY_FONT_FAMILY,
+  FULL_PAGE_END_PARAGRAPH_RESERVE_PT,
 } from "@/App";
 import { toZenkaku } from "@/features/worksheet/worksheet";
-
-const FULL_PAGE_END_PARAGRAPH_RESERVE_PT = 16;
 
 function createNoBorder() {
   return {
@@ -73,30 +73,24 @@ function createTableBorders(includeInsideBorders = true) {
   };
 }
 
-function calculateWorksheetRowHeight(questionCount: number): number {
-  const questionsOnPage = Math.max(
-    1,
-    Math.min(questionCount, QUESTIONS_PER_PAGE),
-  );
-  const fullPageReservePt =
-    questionsOnPage === QUESTIONS_PER_PAGE
-      ? FULL_PAGE_END_PARAGRAPH_RESERVE_PT
-      : 0;
+function calculateWorksheetRowHeight(): number {
   const usableHeightPt =
-    AVAILABLE_HEIGHT_PT - PAGE_HEIGHT_SAFETY_MARGIN_PT - fullPageReservePt;
+    AVAILABLE_HEIGHT_PT -
+    PAGE_HEIGHT_SAFETY_MARGIN_PT -
+    FULL_PAGE_END_PARAGRAPH_RESERVE_PT;
 
-  return Math.floor(usableHeightPt / questionsOnPage);
+  return Math.floor(usableHeightPt / QUESTIONS_PER_PAGE);
 }
 
 export function calculateWorksheetFontSize(
   problemExpressions: string[],
-  questionCount: number,
 ): number {
-  const rowHeightPt = calculateWorksheetRowHeight(questionCount);
+  const rowHeightPt = calculateWorksheetRowHeight();
 
   let fontSizePt = Math.floor(rowHeightPt / PROBLEM_VERTICAL_SPAN);
-  const maxCalcLength = Math.max(
-    ...problemExpressions.map((expression) => expression.length),
+  const maxCalcLength = problemExpressions.reduce(
+    (maxLength, expression) => Math.max(maxLength, expression.length),
+    0,
   );
   const maxLineLength = maxCalcLength + PROBLEM_LINE_PADDING_CHARS;
   const maxFontByWidth = Math.floor(AVAILABLE_WIDTH_PT / maxLineLength);
@@ -130,6 +124,7 @@ function createProblemTable(
                   new TextRun({
                     text: toZenkaku(problemExpression),
                     size: fontSizePt * PROBLEM_TEXT_SCALE,
+                    font: BODY_FONT_FAMILY,
                   }),
                 ],
               }),
@@ -144,6 +139,7 @@ function createProblemTable(
                   new TextRun({
                     text: " ＝",
                     size: fontSizePt * PROBLEM_TEXT_SCALE,
+                    font: BODY_FONT_FAMILY,
                   }),
                 ],
               }),
@@ -254,15 +250,12 @@ export function createWorksheetDocument(params: {
   todayJst: string;
 }): Document {
   const pageChunks = chunkQuestions(params.problemExpressions);
-  const fontSizePt = calculateWorksheetFontSize(
-    params.problemExpressions,
-    params.questionCount,
-  );
+  const fontSizePt = calculateWorksheetFontSize(params.problemExpressions);
 
   return new Document({
     sections: [
       ...pageChunks.map((chunk) => {
-        const rowHeightPt = calculateWorksheetRowHeight(chunk.length);
+        const rowHeightPt = calculateWorksheetRowHeight();
 
         return {
           properties: {
