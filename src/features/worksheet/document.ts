@@ -19,6 +19,8 @@ import { toZenkaku, WORKSHEET_HEADER_TERM_RANGE } from "./worksheet";
 
 const AVAILABLE_HEIGHT_PT = 480;
 const AVAILABLE_WIDTH_PT = 770;
+const QUESTIONS_PER_PAGE = 10;
+const PAGE_HEIGHT_SAFETY_MARGIN_PT = 20;
 const MIN_FONT_SIZE_PT = 8;
 
 function createNoBorder() {
@@ -48,7 +50,10 @@ function createTableBorders(includeInsideBorders = true) {
 }
 
 export function calculateWorksheetFontSize(problemExpressions: string[], questionCount: number): number {
-  let fontSizePt = Math.floor(AVAILABLE_HEIGHT_PT / questionCount);
+  const questionsOnPage = Math.min(questionCount, QUESTIONS_PER_PAGE);
+  const usableHeightPt = AVAILABLE_HEIGHT_PT - PAGE_HEIGHT_SAFETY_MARGIN_PT;
+
+  let fontSizePt = Math.floor(usableHeightPt / (questionsOnPage * 2));
   const maxCalcLength = Math.max(...problemExpressions.map((expression) => expression.length));
   const maxLineLength = maxCalcLength + 2;
   const maxFontByWidth = Math.floor(AVAILABLE_WIDTH_PT / maxLineLength);
@@ -174,6 +179,16 @@ function createFooter(creatorName: string, solverNumber: string, todayJst: strin
   });
 }
 
+function chunkQuestions(problemExpressions: string[]): string[][] {
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < problemExpressions.length; index += QUESTIONS_PER_PAGE) {
+    chunks.push(problemExpressions.slice(index, index + QUESTIONS_PER_PAGE));
+  }
+
+  return chunks;
+}
+
 export function createWorksheetDocument(params: {
   problemExpressions: string[];
   questionCount: number;
@@ -182,9 +197,11 @@ export function createWorksheetDocument(params: {
   todayJst: string;
   fontSizePt: number;
 }): Document {
+  const pageChunks = chunkQuestions(params.problemExpressions);
+
   return new Document({
     sections: [
-      {
+      ...pageChunks.map((chunk) => ({
         properties: {
           page: {
             size: {
@@ -206,8 +223,8 @@ export function createWorksheetDocument(params: {
         footers: {
           default: createFooter(params.creatorName, params.solverNumber, params.todayJst),
         },
-        children: params.problemExpressions.map((problemExpression) => createProblemTable(problemExpression, params.fontSizePt)),
-      },
+        children: chunk.map((problemExpression) => createProblemTable(problemExpression, params.fontSizePt)),
+      })),
     ],
   });
 }
